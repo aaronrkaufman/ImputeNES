@@ -290,8 +290,14 @@ induce_nas = function(iterates, nes, pr = 0.001){
     dup = !duplicated(iters2[[c[i]]]) #in case the randomly induced missing vals are already missing...
     iters2[[c[i]]] = iters2[[c[i]]][dup]
     
-    induced_nas[[c[i]]] = c(induced_nas[[c[i]]], r[i])
-    truth[[c[i]]] = c(truth[[c[i]]], nes[r[i], c[[i]]])
+    induced_nas[[c[i]]] = c(induced_nas[[c[i]]], r[i]) 
+    #truth[[c[i]]] = c(truth[[c[i]]], nes[r[i], c[[i]]]) ## change this: put it outside the loop:
+  }
+  
+  for(i in 1:ncol(nes)){
+    truth[[i]] = nes[induced_nas[[i]],i] #check this t make sure they're all factors that need to be
+    idx = !is.na(truth[[i]]) & truth[[i]]!= "NA"
+    truth[[i]] = truth[[i]][idx]
   }
   
   out = list(iters2, induced_nas, truth)
@@ -317,24 +323,10 @@ check_conv = function(iterates){
 }
 
 #######################################################################
-############# Generic Training Functions  #############################
+############# Iterating Training Functions  ###########################
 #######################################################################
-ensemble = function(train, test, varID){
-  # here is where I put the classifier ensemble
-  # maybe just a boosted regression
-  varname = colnames(test)[varID]
-  m = gbm(varname ~ ., distribution = "gaussian", ntrees=100, shrinkage=0.1, interaction.depth=2, train.fraction=1,
-          keep.data=F)
-  out = predict(gbm, test)
-}
 
-ft_ensemble = function(train, test, varID){
-  #the function I use for a thermometer
-  # 0s are 0s, 3-4-5 in a bucket, then 2nd ordered logit
-  # polr in MASS
-}
-
-
+# try collapsing this function?
 onevar = function(varID, nes, nes2){ #be careful here: the training set is from nes2, but the index is from nes1
   var = nes[,varID]
   varname = colnames(nes)[varID]
@@ -346,7 +338,7 @@ onevar = function(varID, nes, nes2){ #be careful here: the training set is from 
     if(c=="numeric"){
       train = nes2[rows_present, ]
       test = nes2[rows_missing,]
-      if(nrow(train)==1){
+      if(nrow(train)==1){ # not much we can do about that...
         prediction = var
       } else if(nrow(train)<=  51){
         nm = floor(nrow(train)*.5) - 1
@@ -393,16 +385,16 @@ onevar = function(varID, nes, nes2){ #be careful here: the training set is from 
 }
 
 
+
+
 #One function to loop over the set of variables
 one_iteration = function(nes, nes2){
-  prediction = lapply(1:(ncol(nes)-10), FUN=function(x) onevar(x, nes, nes2)) ## make sure this is working actually
-  #prediction = lapply(1:2, FUN=function(x) onevar(x, nes, nes2)) ## make sure this is working actually
-  nes3 = nes
+  prediction = lapply(1:(ncol(nes)-10), FUN=function(x) onevar(x, nes, nes2)) 
+  
+  nes3 = nes #storing a temp dataframe
   
   correct = 0
-  
   for(i in 1:(ncol(nes)-10)){
-  #for(i in 1:2){
     nes3[iterates[[i]],i] <- prediction[[i]]
     #correct = correct + sum(prediction[[i]][indices[[i]]]==truth[[i]]) ## note: doesn't quite work yet
   }
@@ -412,8 +404,6 @@ one_iteration = function(nes, nes2){
   
   return(nes3)
 }
-
-test = one_iteration(nes, nes2)
 
 #One function to iterate: print MSE?
 impute_nes = function(nes, iterates, tol = 100, false.missingness=T){
