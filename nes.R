@@ -272,40 +272,27 @@ warm_start_wrap = function(nes, iterates){
 
 
 ## One function to randomly induce missingness
-induce_nas = function(iterates, nes, pr = 0.001){
-  n = ncol(nes)*nrow(nes)
-  l = sample(1:n, n*pr)
-  l = sort(l)
-  r = l %% nrow(nes)
-  c = floor(l/nrow(nes)) + 1
-  iters2 = iterates
+induce_nas = function(iterates, nes, pr = 0.01){
   
   induced_nas = list()
-  length(induced_nas) = ncol(nes)
   truth = list()
-  length(truth) = ncol(nes)
-  
-  for(i in 1:length(l)){
-    iters2[[c[i]]] = c(iters2[[c[i]]], r[i])
-    dup = !duplicated(iters2[[c[i]]]) #in case the randomly induced missing vals are already missing...
-    iters2[[c[i]]] = iters2[[c[i]]][dup]
-    
-    induced_nas[[c[i]]] = c(induced_nas[[c[i]]], r[i]) 
-    #truth[[c[i]]] = c(truth[[c[i]]], nes[r[i], c[[i]]]) ## change this: put it outside the loop:
-  }
-  
+  iters2 = iterates
   for(i in 1:ncol(nes)){
-    truth[[i]] = nes[induced_nas[[i]],i] #check this t make sure they're all factors that need to be
-    idx = !is.na(truth[[i]]) & truth[[i]]!= "NA"
-    truth[[i]] = truth[[i]][idx]
+    idx = setdiff(1:nrow(nes), iterates[[i]])
+    
+    tosamp = length(idx)*pr
+    
+    induced_nas[[i]] = sort(sample(idx, size=tosamp))
+    truth[[i]] = nes[induced_nas[[i]], i]
+    print(length(induced_nas[[i]])==length(truth[[i]]))
+    iters2[[i]] = c(iters2[[i]], induced_nas[[i]])
   }
+  
+  
   
   out = list(iters2, induced_nas, truth)
   return(out)
-  #extract the values, store to FRONT of init_iterates
-  #fill in the rest: col, row, firstguess
 }
-
 
 ## One function to check the MSE
 check_mse = function(iterates){
@@ -327,7 +314,7 @@ check_conv = function(iterates){
 require(mice)
 check_mice = function(nes2, iterates, indices, truth, subset=NULL){
   nes3 = nes2
-  for(1 in 1:ncol(nes3)){
+  for(i in 1:ncol(nes3)){
     nes3[iterates[[i]],i] = NA
   }
   if(!is.null(subset)){
@@ -343,9 +330,6 @@ check_mice = function(nes2, iterates, indices, truth, subset=NULL){
   }
   return(correct)
 }
-
-test = check_mice(nes2, iterates, indices, truth, subset=1:50)
-test2 = one_iteration(nes[,1:50], nes2[,1:50])
 
 #######################################################################
 ############# Iterating Training Functions  ###########################
@@ -474,10 +458,17 @@ indices = temp[[2]]
 truth = temp[[3]]
 rm(temp)
 
+#good = list()
+#for(i in 1:ncol(nes)){
+#  good[[i]] = length(indices[[i]])==length(truth[[i]])
+#}
 #load("current.RData")
 #start = Sys.time()
 #test = one_iteration(nes, nes2)
 #time_taken = Sys.time() - start
+
+test = check_mice(nes2, iterates, indices, truth, subset=1:50)
+test2 = one_iteration(nes[,1:50], nes2[,1:50])
 
 missing.vals = impute_nes(nes2, iterates) # Runs the bulk of the imputation; probably will have to turn some loops to applys
 final = input_imputed_vals(iterates, nes)
