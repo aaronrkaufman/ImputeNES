@@ -322,6 +322,31 @@ check_conv = function(iterates){
   # this function normalizes all variables 0-1, then measures MSE
 }
 
+
+## MICE comparison
+require(mice)
+check_mice = function(nes2, iterates, indices, truth, subset=NULL){
+  nes3 = nes2
+  for(1 in 1:ncol(nes3)){
+    nes3[iterates[[i]],i] = NA
+  }
+  if(!is.null(subset)){
+    nes3 = nes3[,subset]
+  }
+  nes_mice = mice(nes3, MaxNWts = 20000)
+  mice_guess = list()
+  correct = 0
+  imp = complete(nes_mice)
+  for(i in 2:ncol(nes3)){
+    mice_guess[[i]] = imp[indices[[i]],i]
+    correct = correct + sum(unlist(mice_guess[[i]])==unlist(truth[i]))
+  }
+  return(correct)
+}
+
+test = check_mice(nes2, iterates, indices, truth, subset=1:50)
+test2 = one_iteration(nes[,1:50], nes2[,1:50])
+
 #######################################################################
 ############# Iterating Training Functions  ###########################
 #######################################################################
